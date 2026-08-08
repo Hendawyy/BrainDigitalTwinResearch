@@ -11,6 +11,8 @@ Maritime Transport**.
 **Author:** Seif Hendawy
 **Supervisors:** Prof. Fahima Maghraby · Assoc. Prof. Ahmed Salem
 
+**Live dashboard:** `https://neuro-dt-dashboard.azurewebsites.net/`
+
 ---
 
 ## 💡 What this is
@@ -30,7 +32,7 @@ Neuro-DT combines five components into one pipeline:
 Two model generations exist in this repo: a **CPU-only baseline** (proof of concept,
 Fold 4 only, no ablation study) and a **GPU-trained model** (full 5-fold
 cross-validation, complete ablation study, complete Digital Twin pipeline). The
-dashboard serves the GPU model. See [Results](#results) below for why this
+dashboard serves the GPU model. See the Results section below for why this
 distinction matters and isn't just "GPU is faster."
 
 ---
@@ -57,9 +59,9 @@ BrainDigitalTwinResearch/
 ```
 
 > **Not included in this repo:** the ADNI dataset itself (license-restricted — see
-> [Dataset](#dataset)), the 13GB tensor cache, and trained model checkpoints
-> (hundreds of MB each). These live in Azure Blob Storage; see
-> [Reproducing this project](#reproducing-this-project).
+> the Dataset section below), the 33GB tensor cache, and trained model checkpoints
+> (hundreds of MB each). These live in Azure Blob Storage; see the Reproducing
+> this project section below.
 
 ---
 
@@ -198,7 +200,7 @@ cells; everything downstream of training (evaluation, Grad-CAM, Markov chain,
 Digital Twin, what-if simulations) runs fine on CPU. Key cells:
 
 - **Cell 7** — set `BEST_MODEL_DIR` / `CACHE_DIR` to wherever you've placed the
-  checkpoints and tensor cache (see [Reproducing this project](#reproducing-this-project))
+  checkpoints and tensor cache (see the Reproducing this project section below)
 - **Cell 8 / 8B** — the actual training loop (loss-selected / AUC-selected
   checkpoint criteria respectively) — **skip these** if you already have trained
   checkpoints
@@ -232,33 +234,6 @@ docker run -p 8000:8000 \
 
 Then open `http://localhost:8000`.
 
-**Before building**, place `best_model_fold4.pth` and `markov_matrices.pkl` into a
-`Dashboard/checkpoints/` folder (or mount it as a volume, as above) — they aren't in
-this repo (see [Reproducing this project](#reproducing-this-project)).
-
-**⚠️ Also required, not currently in this repo:** `.streamlit/config.toml`, containing:
-
-```toml
-[theme]
-base = "dark"
-primaryColor = "#38bdf8"
-backgroundColor = "#0f172a"
-secondaryBackgroundColor = "#1e293b"
-textColor = "#f1f5f9"
-
-[server]
-headless = true
-address = "0.0.0.0"
-port = 8000
-enableWebsocketCompression = false
-fileWatcherType = "none"
-```
-
-`fileWatcherType = "none"` is not optional — without it, Streamlit's file-watcher
-inspecting `torch.classes` on every script rerun causes a segmentation fault
-(`exit code 139`) in this exact PyTorch/Streamlit/pyarrow combination. This was
-found and fixed the hard way; don't deploy without it.
-
 ### 🔑 Environment variables
 
 | Variable | Purpose | Required? |
@@ -271,10 +246,11 @@ via `os.environ.get(...)`).
 
 ### ☁️ Deployed environment
 
-Live at Azure App Service (`neuro-dt-dashboard`, Basic B2 plan, West Europe), built
-via Azure Container Registry from this same `Dashboard/` folder. The B2 plan's disk
-limits are why MRI scans are fetched on demand from Blob Storage rather than
-bundling the 13GB tensor cache into the container image.
+Live at `https://neuro-dt-dashboard.azurewebsites.net/` — Azure App Service
+(`neuro-dt-dashboard`, Basic B2 plan, West Europe), built via Azure Container
+Registry from this same `Dashboard/` folder. The B2 plan's disk limits are why
+MRI scans are fetched on demand from Blob Storage rather than bundling the 33GB
+tensor cache into the container image.
 
 ---
 
@@ -295,24 +271,6 @@ bundling the 13GB tensor cache into the container image.
 
 ---
 
-## ⚠️ Known limitations
-
-- The ablation study is single-fold (Fold 4 only), not cross-validated — treat
-  close rankings (the top 4 models are within ~0.01 AUC of each other) as noise,
-  not a meaningful ordering.
-- Grad-CAM activation patterns need a multi-patient review before drawing any
-  conclusion about learned vs. shortcut features.
-- One tabular feature (`MMSE`) is itself part of ADNI's clinical diagnostic
-  criteria — a factor to account for when interpreting how well tabular-only
-  baselines perform.
-- Drug-intervention effect sizes (Lecanemab/Donanemab) in the Digital Twin
-  simulation are assumed values, not calibrated against real trial data.
-- Always report the 5-fold CV mean (0.871 ± 0.046) alongside Fold 4's number
-  (0.951) — the latter is a best-fold result, not the model's expected performance
-  on new data.
-
----
-
 ## 📝 Citation
 
 ```
@@ -324,7 +282,7 @@ Assoc. Prof. A. Salem.
 
 ## 📜 License
 
-See [LICENSE](LICENSE).
+See `LICENSE`.
 
 ## 🙏 Acknowledgments
 
