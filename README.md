@@ -1,4 +1,4 @@
-# Neuro-DT: Brain Digital Twin for Alzheimer's Disease Progression
+# 🧠 Neuro-DT: Brain Digital Twin for Alzheimer's Disease Progression
 
 A multimodal deep learning framework that classifies Alzheimer's disease stage from
 T1-weighted MRI + clinical features, explains its predictions with Grad-CAM, and
@@ -13,18 +13,18 @@ Maritime Transport**.
 
 ---
 
-## What this is
+## 💡 What this is
 
 Neuro-DT combines five components into one pipeline:
 
-1. **3D CNN + Transformer multimodal classifier** — MRI imaging fused with tabular
+1. 🧬 **3D CNN + Transformer multimodal classifier** — MRI imaging fused with tabular
    clinical features, classifying CN / MCI / Dementia
-2. **Grad-CAM explainability** — visualizes which brain regions drove each prediction
-3. **Markov chain prognostic engine** — empirical disease-state transition
+2. 🔥 **Grad-CAM explainability** — visualizes which brain regions drove each prediction
+3. ⛓️ **Markov chain prognostic engine** — empirical disease-state transition
    probabilities estimated from longitudinal ADNI visit sequences
-4. **Monte Carlo Digital Twin simulation** — projects an individual patient's 5-year
+4. 🎲 **Monte Carlo Digital Twin simulation** — projects an individual patient's 5-year
    disease trajectory, with APOE4-genotype-stratified and drug-intervention scenarios
-5. **Streamlit clinical dashboard** — an interactive tool for running all of the above
+5. 📊 **Streamlit clinical dashboard** — an interactive tool for running all of the above
    against a real patient's scan and clinical data, deployed on Azure App Service
 
 Two model generations exist in this repo: a **CPU-only baseline** (proof of concept,
@@ -35,7 +35,7 @@ distinction matters and isn't just "GPU is faster."
 
 ---
 
-## Repository structure
+## 📁 Repository structure
 
 ```
 BrainDigitalTwinResearch/
@@ -63,7 +63,7 @@ BrainDigitalTwinResearch/
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ![BDT Framework Diagram](Framework/Final%20BDT%20Diagram.drawio.png)
 
@@ -74,7 +74,7 @@ LayerNorm + GELU → Transformer encoder (2 layers, 8 heads, `norm_first=True`) 
 
 ---
 
-## Dataset
+## 🗂️ Dataset
 
 - **Source:** [ADNI](http://adni.loni.usc.edu/) (Alzheimer's Disease Neuroimaging
   Initiative) — access requires a separate application and approval; the raw data
@@ -86,9 +86,9 @@ LayerNorm + GELU → Transformer encoder (2 layers, 8 heads, `norm_first=True`) 
 
 ---
 
-## Results
+## 📊 Results
 
-### Why there are two models
+### 🤔 Why there are two models
 
 The original training pipeline ran on a CPU-only Azure compute instance
 (`Standard_E4ds_v4`). Under `CosineAnnealingLR` with no warmup and `batch_size=4`,
@@ -102,7 +102,7 @@ The pipeline was migrated to a GPU (RTX 5070 Ti), the training recipe fixed
 train to completion, giving a genuine cross-validated result, plus the complete
 ablation study and full Digital Twin pipeline that CPU never reached.
 
-### Headline comparison
+### 📈 Headline comparison
 
 | | CPU model | GPU model |
 |---|---|---|
@@ -119,7 +119,7 @@ by CPU at all. On the one truly apples-to-apples comparison — Fold 4, identica
 patients, both machines — **GPU wins by +0.039 AUC**, and it's also the only one of
 the two with an actual variance estimate behind it.
 
-### GPU model — full results
+### 🎯 GPU model — full results
 
 **5-fold cross-validation:**
 
@@ -158,7 +158,7 @@ machinery beyond a plain CNN barely earns its keep (CNN-only ≈ full model); an
 well-tuned Random Forest on the same 4 tabular features gets closer to the deep
 model than expected — a real result to report, not a bug.
 
-### Comparison with published literature
+### 📚 Comparison with published literature
 
 | Paper | Method | AUC / Accuracy |
 |---|---|---|
@@ -174,22 +174,22 @@ Neuro-DT is the only one of these combining 3D MRI classification, individual
 patient simulation, time-varying drug intervention modelling, Grad-CAM
 explainability, and an LLM advisory layer in one framework.
 
-### External-validity findings from the Digital Twin pipeline
+### 🔬 External-validity findings from the Digital Twin pipeline
 
-- **Markov chain, reproduced without being told to:** APOE4-positive patients show
+- ⛓️ **Markov chain, reproduced without being told to:** APOE4-positive patients show
   a higher MCI→Dementia transition rate (0.184) than APOE4-negative (0.133) — the
   correct clinical direction, learned purely from data.
-- **Grad-CAM** shows a fairly diffuse, whole-hemisphere activation pattern rather
+- 🔥 **Grad-CAM** shows a fairly diffuse, whole-hemisphere activation pattern rather
   than a focal hippocampal/medial-temporal-lobe region in the cases examined so
   far — flagged as needing a multi-patient check before drawing conclusions about
   learned vs. shortcut features.
-- **Drug-intervention simulation** (Lecanemab −30%, Donanemab −35% on the
+- 💊 **Drug-intervention simulation** (Lecanemab −30%, Donanemab −35% on the
   MCI→Dementia transition) uses assumed, not trial-calibrated, effect sizes —
   stated explicitly to avoid overclaiming.
 
 ---
 
-## Notebooks
+## 📓 Notebooks
 
 ### `NeuroDT_Notebooks/NeuroDT_GPU.ipynb`
 
@@ -216,9 +216,9 @@ CPU-only path for the post-training analysis cells if no GPU is available.
 
 ---
 
-## Dashboard
+## 🖥️ Dashboard
 
-### Running locally with Docker
+### 🐳 Running locally with Docker
 
 ```bash
 cd Dashboard
@@ -236,7 +236,7 @@ Then open `http://localhost:8000`.
 `Dashboard/checkpoints/` folder (or mount it as a volume, as above) — they aren't in
 this repo (see [Reproducing this project](#reproducing-this-project)).
 
-**⚠ Also required, not currently in this repo:** `.streamlit/config.toml`, containing:
+**⚠️ Also required, not currently in this repo:** `.streamlit/config.toml`, containing:
 
 ```toml
 [theme]
@@ -259,7 +259,7 @@ inspecting `torch.classes` on every script rerun causes a segmentation fault
 (`exit code 139`) in this exact PyTorch/Streamlit/pyarrow combination. This was
 found and fixed the hard way; don't deploy without it.
 
-### Environment variables
+### 🔑 Environment variables
 
 | Variable | Purpose | Required? |
 |---|---|---|
@@ -269,7 +269,7 @@ found and fixed the hard way; don't deploy without it.
 Never hardcode these — always read from the environment (the app already does this
 via `os.environ.get(...)`).
 
-### Deployed environment
+### ☁️ Deployed environment
 
 Live at Azure App Service (`neuro-dt-dashboard`, Basic B2 plan, West Europe), built
 via Azure Container Registry from this same `Dashboard/` folder. The B2 plan's disk
@@ -278,7 +278,7 @@ bundling the 13GB tensor cache into the container image.
 
 ---
 
-## Reproducing this project
+## 🔁 Reproducing this project
 
 1. **Get ADNI access** at [adni.loni.usc.edu](http://adni.loni.usc.edu/) — approval
    takes a few days.
@@ -295,7 +295,7 @@ bundling the 13GB tensor cache into the container image.
 
 ---
 
-## Known limitations
+## ⚠️ Known limitations
 
 - The ablation study is single-fold (Fold 4 only), not cross-validated — treat
   close rankings (the top 4 models are within ~0.01 AUC of each other) as noise,
@@ -313,7 +313,7 @@ bundling the 13GB tensor cache into the container image.
 
 ---
 
-## Citation
+## 📝 Citation
 
 ```
 Hendawy, S. (2026). A Multimodal Deep Learning Framework for a Digital Twin
@@ -322,11 +322,11 @@ Science, Technology and Maritime Transport. Supervisors: Prof. F. Maghraby,
 Assoc. Prof. A. Salem.
 ```
 
-## License
+## 📜 License
 
 See [LICENSE](LICENSE).
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
 Data used in this project were obtained from the Alzheimer's Disease Neuroimaging
 Initiative (ADNI) database ([adni.loni.usc.edu](http://adni.loni.usc.edu/)).
