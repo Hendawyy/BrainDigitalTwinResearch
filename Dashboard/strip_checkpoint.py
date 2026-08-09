@@ -1,33 +1,13 @@
-"""
-Shrink a training checkpoint down to what the dashboard actually needs.
-
-The GPU-run checkpoints are ~289 MB because they embed the optimizer, scheduler
-and AMP-scaler states so training could resume. Inference needs none of that —
-only the weights, the fitted StandardScaler and the label map. Dropping the rest
-takes the file from ~289 MB to ~97 MB (a 67% cut), which matters twice over on
-the B2 App Service plan: a smaller image pulls inside the container start-time
-limit, and torch.load() no longer has to deserialise ~190 MB of optimizer
-tensors into a 3.5 GB RAM budget on the first request.
-
-Usage (from the dashboard folder, on the compute instance):
-
-    python strip_checkpoint.py checkpoints/best_model_fold4.pth
-
-Writes alongside the input as <name>_slim.pth and leaves the original in place.
-Verify, then swap the slim file in as best_model_fold4.pth before rebuilding.
-"""
 import os
 import sys
 from pathlib import Path
 
 import torch
 
-# Everything the dashboard's load_assets() reads, plus the provenance fields that
-# let you confirm which run a checkpoint came from.
 KEEP = (
-    "model_state_dict",   # the weights
-    "scaler",             # fitted StandardScaler for the 4 tabular features
-    "label_map",          # class-name <-> index mapping
+    "model_state_dict",
+    "scaler",
+    "label_map",
     "fold",
     "epoch",
     "val_loss",
