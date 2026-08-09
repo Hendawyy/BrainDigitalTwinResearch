@@ -1,7 +1,3 @@
-"""
-Model definition — extracted from notebook Cell 8.
-Must stay in sync with the training notebook.
-"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
