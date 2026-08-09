@@ -1,10 +1,3 @@
-"""
-Neuro-DT Clinical Dashboard v7
-- Fix 1: DICOM download status message updates then clears after MRI processing
-- Fix 2 & 3: All results + bytes stored to session_state; never disappear on rerun
-- Fix 4: PDF spacing improved throughout; Neuro-DT attribution footer
-- Fix 5: Full light/dark mode CSS with JS theme detection
-"""
 import streamlit as st
 import torch, numpy as np, matplotlib, json, os, io, pickle, tempfile, shutil
 from pathlib import Path
@@ -104,10 +97,6 @@ CACHE_DIR        = Path(os.environ.get("CACHE_DIR",       "./tensor_cache"))
 TARGET_SIZE      = (128, 128, 128)
 TABULAR_FEATURES = ['AGE', 'PTEDUCAT', 'MMSE', 'APOE4']
 
-# Diagnosis colours, keyed by class name so a colour tracks the diagnosis rather
-# than its position in a list. Validated against a white chart surface for both
-# normal vision and colour-vision deficiency (worst pair ΔE 20.8 normal /
-# 15.3 deuteranopia); the ramp also reads as increasing severity.
 CLASS_COLOURS = {'CN': '#2a78d6', 'Dementia': '#e34948', 'MCI': '#eda100'}
 NEUTRAL_SERIES = '#6b7280'
 ACCENT         = '#2a78d6'
@@ -380,9 +369,6 @@ def plot_single_traj(traj, ci, title, snames, dem_i, years):
     plt.tight_layout(); return fig
 
 def plot_risk_bar(risk_vals, labels):
-    # One measure across four scenarios is a single series: the scenario names on
-    # the axis carry identity, so a second colour would encode nothing. Baseline
-    # is held in a lighter step to mark it as the reference the rest compare to.
     fig, ax = plt.subplots(figsize=(6.2, 3.6), facecolor='white')
     ax.set_facecolor('white')
     cols = ['#9ec5f4'] + [ACCENT] * (len(risk_vals) - 1)
