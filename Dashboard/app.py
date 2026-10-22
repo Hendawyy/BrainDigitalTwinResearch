@@ -1,5 +1,6 @@
 import streamlit as st
 import torch, numpy as np, matplotlib, json, os, io, pickle, tempfile, shutil
+import pandas as pd
 from pathlib import Path
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -97,6 +98,12 @@ CACHE_DIR        = Path(os.environ.get("CACHE_DIR",       "./tensor_cache"))
 TARGET_SIZE      = (128, 128, 128)
 TABULAR_FEATURES = ['AGE', 'PTEDUCAT', 'MMSE', 'APOE4']
 
+# Fixed folder every scan lives under in blob storage. Scan paths are shown and
+# entered without this prefix; it is added back automatically before querying
+# Azure, so both old-style (full path) and new-style (relative) input still work.
+BLOB_PATH_PREFIX = "unzipped_dicoms/ADNI"
+TEST_DATA_CSV    = Path(__file__).parent / "test_data.csv"
+
 CLASS_COLOURS = {'CN': '#2a78d6', 'Dementia': '#e34948', 'MCI': '#eda100'}
 NEUTRAL_SERIES = '#6b7280'
 ACCENT         = '#2a78d6'
@@ -120,6 +127,13 @@ def _class_names(label_map):
     if all(isinstance(v, str) for v in label_map.values()):
         return [label_map[k] for k in sorted(label_map)]
     return sorted(label_map, key=label_map.get)
+
+
+@st.cache_data
+def load_test_data():
+    if not TEST_DATA_CSV.exists():
+        return None
+    return pd.read_csv(TEST_DATA_CSV)
 
 
 @st.cache_resource
@@ -988,13 +1002,14 @@ with st.sidebar:
                           help="Number of APOE4 alleles")
 
     st.markdown('<div class="sec-hdr">MRI Scan (optional)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="info-box">Enter the blob storage path to load the patient scan. '
-                'Format: <code>unzipped_dicoms/ADNI/XXX_S_XXXX/MPRAGE/date/IXXXXXX</code></div>',
+    st.markdown('<div class="info-box">Enter the scan path to load the patient scan. '
+                'Format: <code>XXX_S_XXXX/MPRAGE/date/IXXXXXX</code></div>',
                 unsafe_allow_html=True)
     scan_dir_input = st.text_input(
         "Blob scan path",
-        placeholder="unzipped_dicoms/ADNI/002_S_0559/MPRAGE/2009-07-01.../I147119",
-        help="Paste the scan_dir value from your ADNI manifest CSV")
+        placeholder="002_S_0559/MPRAGE/2009-07-01.../I147119",
+        help="Paste the scan_dir value from the Getting Started tab's test data, "
+             "or your own manifest CSV")
 
     st.markdown("---")
     run_btn = st.button("▶  Run Digital Twin", use_container_width=True)
@@ -1003,7 +1018,7 @@ with st.sidebar:
                 unsafe_allow_html=True)
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_res, tab_about = st.tabs(["📊 Results", "ℹ️ About"])
+tab_res, tab_guide, tab_about = st.tabs(["📊 Results", "Getting Started", "ℹ️ About"])
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  RESULTS TAB
@@ -1033,7 +1048,14 @@ with tab_res:
                         EnsureChannelFirstd, Orientationd, Spacingd,
                         ScaleIntensityRanged, ResizeWithPadOrCropd, ToTensord)
 
-                    scan_path_clean = scan_dir_input.strip().rstrip('/')
+                    scan_path_entered = scan_dir_input.strip().strip('/')
+                    # Accept both the short form (patient/.../ImageID) shown in
+                    # the UI and the test data, and an old-style full path that
+                    # already includes the fixed blob folder.
+                    if scan_path_entered.startswith(BLOB_PATH_PREFIX):
+                        scan_path_clean = scan_path_entered
+                    else:
+                        scan_path_clean = f"{BLOB_PATH_PREFIX}/{scan_path_entered}"
                     cache_key  = scan_path_clean.replace('/', '_') + '.pt'
                     cache_path = CACHE_DIR / cache_key
 
@@ -1405,6 +1427,146 @@ with tab_res:
 </div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  GETTING STARTED TAB
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_guide:
+    st.markdown('<div class="sec-hdr">How This Dashboard Works</div>', unsafe_allow_html=True)
+    st.markdown("""
+This dashboard runs the Brain Digital Twin on one patient at a time. You enter a patient's
+demographic and cognitive data in the sidebar, optionally point it at that patient's MRI scan,
+and click **Run Digital Twin**. The Results tab then shows a predicted diagnosis, an explanation
+of what drove it, and a simulation of how that patient's risk might change over the next five
+years under different scenarios.
+
+You do not need your own data to try it. A de-identified test dataset, drawn from the same ADNI
+cohort used to train and validate the model, is provided below.
+    """)
+
+    st.markdown("---")
+    st.markdown('<div class="sec-hdr">Step 1 — Pick a Test Patient</div>', unsafe_allow_html=True)
+    st.markdown("""
+The table below lists every scan in the test dataset. Each row is one patient visit, with the
+clinical and demographic values the model was trained on and the diagnosis recorded for that
+visit in ADNI. Pick any row — which patient, visit, or diagnosis you choose makes no difference
+to how the dashboard treats it.
+    """)
+
+    test_df = load_test_data()
+    if test_df is None:
+        st.warning(f"Test data file not found at {TEST_DATA_CSV}.")
+    else:
+        search = st.text_input("Filter by patient ID", placeholder="e.g. 141_S_0915")
+        filtered = test_df
+        if search.strip():
+            filtered = test_df[test_df['patient_id'].str.contains(
+                search.strip(), case=False, na=False)]
+
+        display_cols = ['patient_id', 'visit_code', 'AGE', 'PTEDUCAT', 'MMSE',
+                         'APOE4', 'diagnosis']
+        st.dataframe(filtered[display_cols], use_container_width=True, height=280)
+
+        options = [
+            f"{row.patient_id} · visit {row.visit_code} · {row.diagnosis} "
+            f"({row['Image Data ID']})"
+            for _, row in filtered.iterrows()
+        ]
+        if options:
+            picked = st.selectbox("Select a row to load its values", options)
+            picked_row = filtered.iloc[options.index(picked)]
+
+            st.markdown("**Copy these into the sidebar fields:**")
+            v1, v2, v3, v4 = st.columns(4)
+            v1.markdown(f"**Age**\n\n`{picked_row['AGE']}`")
+            v2.markdown(f"**Education**\n\n`{picked_row['PTEDUCAT']}`")
+            v3.markdown(f"**MMSE**\n\n`{picked_row['MMSE']}`")
+            v4.markdown(f"**APOE4**\n\n`{picked_row['APOE4']}`")
+            st.markdown("**Blob scan path** (optional, for the MRI-based parts of the result):")
+            st.code(picked_row['scan_dir'], language=None)
+            st.caption(
+                f"This record's recorded diagnosis in ADNI was **{picked_row['diagnosis']}**. "
+                "Keep it in mind after you run the model — comparing the model's "
+                "prediction against this label is one way to judge whether a result looks right."
+            )
+        else:
+            st.info("No patients match that filter.")
+
+        st.download_button(
+            "Download test data (CSV)",
+            data=test_df.to_csv(index=False).encode('utf-8'),
+            file_name="test_data.csv",
+            mime="text/csv",
+        )
+
+    st.markdown("---")
+    st.markdown('<div class="sec-hdr">Step 2 — Fill In the Sidebar</div>', unsafe_allow_html=True)
+    st.markdown("""
+In the sidebar on the left:
+
+- **Patient ID** — any label you want; it is only used in the downloaded report.
+- **Age** and **Education** — the two demographic fields.
+- **MMSE Score** — the Mini-Mental State Examination score, 0 to 30. Higher is better: 30 is
+  normal, 24-27 suggests mild concern, below 24 suggests impairment.
+- **APOE4 Alleles** — the number of APOE4 gene copies the patient carries (0, 1, or 2). More
+  copies means higher genetic risk for Alzheimer's.
+- **Blob scan path** (optional) — the scan path from the row you picked above. Leave it blank
+  for a tabular-only result; include it to also get an MRI-based prediction and a Grad-CAM
+  explanation.
+    """)
+
+    st.markdown("---")
+    st.markdown('<div class="sec-hdr">Step 3 — Run It</div>', unsafe_allow_html=True)
+    st.markdown("""
+Click **Run Digital Twin** at the bottom of the sidebar. If an MRI path was provided, the scan
+downloads and preprocesses first, which takes longer than a tabular-only run. The first run for
+a given patient is also slower than later ones, since the preprocessed scan is cached afterward.
+    """)
+
+    st.markdown("---")
+    st.markdown('<div class="sec-hdr">Step 4 — Read the Results</div>', unsafe_allow_html=True)
+    st.markdown("""
+The Results tab fills in with six sections, in order:
+
+**Predicted Diagnosis.** The model's best estimate of the patient's current cognitive status —
+Cognitively Normal, Mild Cognitive Impairment, or Dementia — with its confidence (how strongly
+the model favored that class over the other two), and two headline 5-year Dementia risk figures:
+baseline, and under a simulated APOE4-positive genotype.
+
+**Diagnosis Probabilities.** The same prediction broken out across all three classes rather than
+just the winner. A close split between two classes (for example CN at 55% and MCI at 40%) means
+the case is borderline; a lopsided split means the model is confident.
+
+**5-Year State Trajectories.** Four panels, each simulating the probability of being in each
+diagnostic state over the next five years: the patient's baseline, an APOE4-positive version of
+the same patient, and that APOE4-positive version under each of two simulated drug interventions
+(Lecanemab, Donanemab). The shaded band around each line is a 95% confidence interval from the
+underlying Monte Carlo simulation, not a measurement error bar — it reflects the spread of
+simulated outcomes, not uncertainty in the input data.
+
+**5-Year Dementia Risk by Scenario.** The same four scenarios condensed into one number each —
+the probability of being in the Dementia state at year 5 — so the genetic-risk and treatment
+effects can be read at a glance. The note underneath states the APOE4 risk increase and the
+Lecanemab risk reduction in percentage points for this specific patient.
+
+**Grad-CAM Neuroimaging Explainability.** Only appears if an MRI scan was provided. Shows the
+brain regions that most influenced the prediction, overlaid on axial, sagittal, and coronal
+slices — warmer colors (red, yellow) mark the regions the model weighted most heavily. This
+shows what the model looked at, not a clinical finding of atrophy or pathology at that location.
+
+**AI Lifestyle Recommendations.** Generated from the patient's predicted risk level, split into
+exercise, diet, cognitive stimulation, social engagement, sleep, and a monitoring schedule.
+These are general, literature-informed suggestions, not an individualized clinical care plan.
+
+At the bottom, three download buttons export the full result as JSON, a patient-facing report,
+and a clinician-facing report.
+    """)
+
+    st.markdown("---")
+    st.markdown(
+        '<div class="info-box">Full technical details, including validation results, the '
+        'ablation study, and the underlying dataset, are on the About tab.</div>',
+        unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  ABOUT TAB
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_about:
@@ -1634,9 +1796,15 @@ two actually checked against a selection-bias artifact.
 
     st.markdown("---")
     st.markdown("""
-**Citation:** Hendawy, S. (2026). *A Multimodal Deep Learning Framework for a Digital Twin
-Simulating Alzheimer's Disease Progression.* Arab Academy for Science, Technology and Maritime
-Transport. Supervisors: Prof. F. Maghraby · Assoc. Prof. A. Salem.
+**Citation — model and simulation:** S. Hendawy, F. Maghraby, A. Salem, "Brain Digital Twin
+(BDT): a hybrid 3D CNN-Transformer framework with Markov-based prognostic simulation for
+personalized Alzheimer's Disease progression modeling," manuscript in preparation.
+
+**Citation — this dashboard:** S. Hendawy, F. Maghraby, A. Salem, "Neuro-DT Dashboard: a
+Streamlit-based clinical interface for Brain Digital Twin Alzheimer's Disease risk prediction,
+explainability, and intervention simulation," manuscript in preparation.
+
+Code: [github.com/Hendawyy/neuro-dt-dashboard](https://github.com/Hendawyy/neuro-dt-dashboard)
 
 **Dataset:** ADNI (Alzheimer's Disease Neuroimaging Initiative) — 1,549 T1-weighted MRI scans,
 469 CN · 477 Dementia · 603 MCI · ~500 unique patients across ADNI-1/GO/2/3.
